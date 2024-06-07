@@ -15,6 +15,7 @@ import (
 	"time"
 )
 
+// Define flags for command-line options
 var (
 	flagFilePath string
 	flagRandom   bool
@@ -22,6 +23,7 @@ var (
 	wg           sync.WaitGroup
 )
 
+// Initialize flags
 func init() {
 	flag.StringVar(&flagFilePath, "file", "questions.csv", "path/to/csv_file")
 	flag.BoolVar(&flagRandom, "random", true, "randomize order of questions")
@@ -30,19 +32,7 @@ func init() {
 }
 
 func main() {
-	// this program will progress as follows
-	// read a csv filepath and a time limit from flags
-	// prompt for a key press
-	// on key press, start the quiz as follows
-	//
-	// while time has not elapsed:
-	// print a random question to the screen
-	// prompt the user for an answer
-	// store the answer in a container
-	// normalize answers so they compare correctly
-	// output total questions answered correctly and how many questions there
-	// were.
-
+	// Read command-line flags
 	csvPath, err := filepath.Abs(flagFilePath)
 	if err != nil {
 		log.Fatalln("Unable to parse path: " + csvPath)
@@ -53,17 +43,20 @@ func main() {
 	}
 	defer file.Close()
 
+	// Read CSV file
 	csvReader := csv.NewReader(file)
 	csvData, err := csvReader.ReadAll()
 	if err != nil {
 		log.Fatalln(err)
 	}
 
+	// Initialize maps to store questions, answers, and user responses
 	var totalQuestions = len(csvData)
 	questions := make(map[int]string, totalQuestions)
 	answers := make(map[int]string, totalQuestions)
 	responses := make(map[int]string, totalQuestions)
 
+	// Parse CSV data and populate maps
 	for i, data := range csvData {
 		questions[i] = data[0]
 		answers[i] = data[1]
@@ -71,16 +64,17 @@ func main() {
 
 	respondTo := make(chan string)
 
-	// block until user presses enter
+	// Wait for user to press Enter to start the quiz
 	fmt.Println("Press [Enter] to start test.")
 	bufio.NewScanner(os.Stdin).Scan()
+
+	// Randomize question order if specified
 	if flagRandom {
-		// seed the random number generator with the current time
 		rand.Seed(time.Now().UTC().UnixNano())
 	}
-	// randPool should contain random indexes into the questions map
 	randPool := rand.Perm(totalQuestions)
 
+	// Start quiz session
 	wg.Add(1)
 	timeUp := time.After(time.Second * time.Duration(flagTime))
 	go func() {
@@ -89,9 +83,11 @@ func main() {
 			index := randPool[i]
 			go askQuestion(os.Stdout, os.Stdin, questions[index], respondTo)
 			select {
+			// Check if time is up
 			case <-timeUp:
 				fmt.Fprintln(os.Stderr, "\nTime up!")
 				break label
+			// Receive user response
 			case ans, ok := <-respondTo:
 				if ok {
 					responses[index] = ans
@@ -104,15 +100,19 @@ func main() {
 	}()
 	wg.Wait()
 
+	// Evaluate user responses
 	correct := 0
 	for i := 0; i < totalQuestions; i++ {
 		if checkAnswer(answers[i], responses[i]) {
 			correct++
 		}
 	}
+
+	// Display quiz summary
 	summary(correct, totalQuestions)
 }
 
+// Function to ask a question and collect user response
 func askQuestion(w io.Writer, r io.Reader, question string, replyTo chan string) {
 	reader := bufio.NewReader(r)
 	fmt.Fprintln(w, "Question: "+question)
@@ -128,6 +128,7 @@ func askQuestion(w io.Writer, r io.Reader, question string, replyTo chan string)
 	replyTo <- strings.TrimSpace(answer)
 }
 
+// Function to check if the user's response matches the expected answer
 func checkAnswer(ans string, expected string) bool {
 	if strings.EqualFold(ans, expected) {
 		return true
@@ -135,6 +136,7 @@ func checkAnswer(ans string, expected string) bool {
 	return false
 }
 
+// Function to display quiz summary
 func summary(correct, totalQuestions int) {
 	fmt.Fprintf(os.Stdout, "You answered %d questions correctly (%d / %d)\n", correct,
 		correct, totalQuestions)

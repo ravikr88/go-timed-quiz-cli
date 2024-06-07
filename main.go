@@ -45,7 +45,7 @@ func main() {
 
 	csvPath, err := filepath.Abs(flagFilePath)
 	if err != nil {
-		log.Fatalln("Unable to parse path" + csvPath)
+		log.Fatalln("Unable to parse path: " + csvPath)
 	}
 	file, err := os.Open(csvPath)
 	if err != nil {
@@ -73,7 +73,7 @@ func main() {
 
 	// block until user presses enter
 	fmt.Println("Press [Enter] to start test.")
-	bufio.NewScanner(os.Stdout).Scan()
+	bufio.NewScanner(os.Stdin).Scan()
 	if flagRandom {
 		// seed the random number generator with the current time
 		rand.Seed(time.Now().UTC().UnixNano())
@@ -125,11 +125,11 @@ func askQuestion(w io.Writer, r io.Reader, question string, replyTo chan string)
 		}
 		log.Fatalln(err)
 	}
-	replyTo <- answer
+	replyTo <- strings.TrimSpace(answer)
 }
 
 func checkAnswer(ans string, expected string) bool {
-	if strings.EqualFold(strings.TrimSpace(ans), strings.TrimSpace(expected)) {
+	if strings.EqualFold(ans, expected) {
 		return true
 	}
 	return false
